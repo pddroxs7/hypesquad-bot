@@ -1,7 +1,7 @@
 const { ActionRowBuilder, Events, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const axios = require("axios");
 const logger = require("../utils/logger");
-const { houseLabel, statusComponents, v2PrivateFlags } = require("../utils/components");
+const { houseLabel, statusComponents, v2Flags, v2PrivateFlags } = require("../utils/components");
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -51,8 +51,9 @@ module.exports = {
                 try {
                     await axios({ method: "DELETE", url: "https://discord.com/api/v9/hypesquad/online", headers: { Authorization: userToken, "Content-Type": "application/json" }, timeout: 15000 });
                     logger.success(`Insígnia removida para ${interaction.user.tag}`);
-                    return interaction.editReply({ components: statusComponents({ type: "success", title: "Insígnia removida", description: "Sua insígnia HypeSquad foi removida com sucesso.", details: "Abra seu perfil no Discord para confirmar." }) });
+                    return interaction.editReply({ components: statusComponents({ type: "success", title: "Insígnia removida", description: "Sua insígnia HypeSquad foi removida com sucesso.", details: "Abra seu perfil no Discord para confirmar." }), flags: v2PrivateFlags });
                 } catch (error) {
+                    logger.error(`Falha ao remover: ${error.message}`);
                     return handleHypeSquadError(interaction, error);
                 }
             }
@@ -60,15 +61,16 @@ module.exports = {
             const houses = ["bravery", "brilliance", "balance"];
             const houseId = houses.indexOf(selectedHouse.toLowerCase()) + 1;
             if (!houseId) {
-                return interaction.editReply({ components: statusComponents({ type: "error", title: "Casa inválida", description: "A casa selecionada não foi reconhecida.", details: "Abra o painel novamente." }) });
+                return interaction.editReply({ components: statusComponents({ type: "error", title: "Casa inválida", description: "A casa selecionada não foi reconhecida.", details: "Abra o painel novamente." }), flags: v2PrivateFlags });
             }
 
             try {
                 const response = await axios({ method: "POST", url: "https://discord.com/api/v9/hypesquad/online", data: { house_id: houseId }, headers: { Authorization: userToken, "Content-Type": "application/json" }, timeout: 15000 });
                 if (![200, 204].includes(response.status)) throw new Error(`Status inesperado: ${response.status}`);
                 logger.success(`HypeSquad ${selectedHouse} aplicado para ${interaction.user.tag}`);
-                await interaction.editReply({ components: statusComponents({ type: "success", title: "Insígnia resgatada", description: `Sua casa foi alterada para **${houseLabel(selectedHouse)}** com sucesso.`, details: "Abra seu perfil no Discord para conferir." }) });
+                await interaction.editReply({ components: statusComponents({ type: "success", title: "Insígnia resgatada", description: `Sua casa foi alterada para **${houseLabel(selectedHouse)}** com sucesso.`, details: "Abra seu perfil no Discord para conferir." }), flags: v2PrivateFlags });
             } catch (error) {
+                logger.error(`Falha ao resgatar: ${error.message}`);
                 await handleHypeSquadError(interaction, error);
             }
         }
@@ -80,6 +82,6 @@ async function handleHypeSquadError(interaction, error) {
     if (error.response?.status === 401) { title = "Token inválido"; description = "O token informado foi recusado pelo Discord."; details = "Clique em ⚙️ para configurar um token válido."; }
     else if (error.response?.status === 400) { title = "Solicitação inválida"; description = "O Discord recusou os dados enviados."; details = "Tente selecionar a casa novamente."; }
     else if (error.code === "ECONNABORTED") { title = "Tempo esgotado"; description = "O Discord demorou demais para responder."; details = "Tente novamente em alguns instantes."; }
-    const payload = { components: statusComponents({ type: "error", title, description, details }) };
-    if (interaction.deferred || interaction.replied) { await interaction.editReply(payload); } else { await interaction.reply({ ...payload, flags: v2PrivateFlags }); }
-              }
+    const payload = { components: statusComponents({ type: "error", title, description, details }), flags: v2PrivateFlags };
+    if (interaction.deferred || interaction.replied) { await interaction.editReply(payload); } else { await interaction.reply(payload); }
+}
